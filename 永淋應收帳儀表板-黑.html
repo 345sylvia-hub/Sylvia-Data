@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>永淋｜應收帳款儀表板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2333;
+    --border: rgba(255,255,255,0.07);
+    --accent: #4f9eff;
+    --accent2: #36d9a0;
+    --accent3: #f5a623;
+    --danger: #ff5f57;
+    --text: #e8eaf0;
+    --text2: #8892a4;
+    --text3: #4d5568;
+    --radius: 12px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Noto Sans TC', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-mark {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: #fff;
+  }
+  .logo-text { font-size: 15px; font-weight: 500; letter-spacing: 0.02em; }
+  .logo-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  #fileInfo { font-size: 12px; color: var(--text2); font-family: var(--mono); }
+
+  /* ── UPLOAD ZONE ── */
+  #uploadSection {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: calc(100vh - 65px);
+    padding: 40px;
+  }
+  .drop-zone {
+    width: 100%; max-width: 520px;
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    background: var(--surface);
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79,158,255,0.05);
+    transform: translateY(-2px);
+  }
+  .drop-icon {
+    width: 64px; height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(79,158,255,0.15), rgba(54,217,160,0.1));
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 28px;
+  }
+  .drop-title { font-size: 18px; font-weight: 500; margin-bottom: 8px; }
+  .drop-sub { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .drop-btn {
+    display: inline-block;
+    margin-top: 24px;
+    padding: 10px 24px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .drop-btn:hover { opacity: 0.85; }
+  #fileInput { display: none; }
+  .format-hint { margin-top: 16px; font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  /* ── DASHBOARD ── */
+  #dashboard { display: none; padding: 28px 32px; }
+
+  /* KPI row */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--c1), var(--c2));
+  }
+  .kpi-label { font-size: 11px; color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+  .kpi-value { font-size: 22px; font-weight: 700; font-family: var(--mono); letter-spacing: -0.02em; }
+  .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 6px; }
+  .kpi-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; font-family: var(--mono); padding: 2px 6px;
+    border-radius: 4px; margin-top: 4px;
+  }
+  .badge-up { background: rgba(54,217,160,0.15); color: var(--accent2); }
+  .badge-dn { background: rgba(255,95,87,0.15); color: var(--danger); }
+
+  /* Charts */
+  .charts-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-bottom: 24px; }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--text); }
+  .chart-sub { font-size: 11px; color: var(--text2); }
+  .legend { display: flex; gap: 14px; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  .leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .chart-body { position: relative; }
+
+  /* Month tabs */
+  .month-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab {
+    padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border); color: var(--text2);
+    background: transparent; transition: all 0.15s; font-family: var(--sans);
+  }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Table */
+  .table-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .table-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .table-title { font-size: 13px; font-weight: 500; margin-right: auto; }
+  .search-box {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 12px; color: var(--text);
+    font-size: 12px; font-family: var(--sans); outline: none;
+    width: 200px; transition: border-color 0.2s;
+  }
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--text3); }
+  select.ctrl {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 10px; color: var(--text);
+    font-size: 12px; font-family: var(--sans); outline: none; cursor: pointer;
+  }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead th {
+    padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 500;
+    color: var(--text2); letter-spacing: 0.05em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+    cursor: pointer; user-select: none;
+    background: var(--surface);
+  }
+  thead th:hover { color: var(--text); }
+  thead th.num { text-align: right; }
+  tbody td {
+    padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text); white-space: nowrap;
+  }
+  tbody td.num { text-align: right; font-family: var(--mono); font-size: 12px; }
+  tbody td.dim { color: var(--text2); font-family: var(--mono); font-size: 11px; }
+  tbody tr:hover td { background: rgba(255,255,255,0.03); }
+  tbody tr:last-child td { border-bottom: none; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 500; font-family: var(--mono);
+  }
+  .pill-up { background: rgba(54,217,160,0.15); color: var(--accent2); }
+  .pill-dn { background: rgba(255,95,87,0.15); color: var(--danger); }
+  .pill-new { background: rgba(79,158,255,0.15); color: var(--accent); }
+  .pill-na { background: rgba(255,255,255,0.06); color: var(--text3); }
+  .table-footer {
+    padding: 10px 20px; font-size: 11px; color: var(--text3);
+    font-family: var(--mono); text-align: right;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Upload button in header */
+  .btn-upload {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 7px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-size: 12px; cursor: pointer;
+    transition: all 0.2s; font-family: var(--sans);
+  }
+  .btn-upload:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Sort indicator */
+  .sort-ind { opacity: 0.4; font-size: 10px; }
+  th.sorted .sort-ind { opacity: 1; color: var(--accent); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    .charts-grid { grid-template-columns: 1fr; }
+    #dashboard { padding: 16px; }
+    header { padding: 14px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">永</div>
+    <div>
+      <div class="logo-text">永淋企業</div>
+      <div class="logo-sub">應收帳款儀表板</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="fileInfo">尚未載入資料</span>
+    <button class="btn-upload" onclick="document.getElementById('fileInput2').click()">
+      ⬆ 更換 Excel
+    </button>
+    <input type="file" id="fileInput2" accept=".xlsx,.xls" style="display:none" onchange="handleFile(this.files[0])">
+  </div>
+</header>
+
+<!-- Upload screen -->
+<div id="uploadSection">
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-icon">📊</div>
+    <div class="drop-title">拖曳 Excel 檔案到這裡</div>
+    <div class="drop-sub">支援永淋應收帳款格式<br>包含客戶編號、客戶名稱、各月帳款與稅金欄位</div>
+    <label class="drop-btn" for="fileInput">選擇檔案</label>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+    <div class="format-hint">支援格式：.xlsx / .xls</div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="kpi-grid" id="kpiGrid"></div>
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">前 10 大客戶比較</div>
+          <div class="chart-sub" id="barSub"></div>
+        </div>
+        <div class="legend" id="barLegend"></div>
+      </div>
+      <div class="chart-body" style="height:280px">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">月趨勢</div>
+          <div class="chart-sub">各月應收合計</div>
+        </div>
+      </div>
+      <div class="chart-body" style="height:280px">
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <div class="table-header">
+      <span class="table-title">客戶明細</span>
+      <input class="search-box" id="searchBox" placeholder="搜尋客戶名稱 / 編號…" oninput="renderTable()">
+      <select class="ctrl" id="sortSel" onchange="renderTable()">
+        <option value="latest_desc">最新月 ↓</option>
+        <option value="total_desc">累計 ↓</option>
+        <option value="name">名稱</option>
+      </select>
+      <select class="ctrl" id="filterSel" onchange="renderTable()">
+        <option value="all">全部客戶</option>
+        <option value="latest">最新月有資料</option>
+        <option value="new">最新月新增</option>
+        <option value="missing">最新月無資料</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="table-footer" id="tableFooter"></div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+// State
+// ──────────────────────────────────────────────
+let STATE = { customers: [], months: [], fileName: '' };
+let barChartInst = null;
+let lineChartInst = null;
+
+// ──────────────────────────────────────────────
+// Drag & drop
+// ──────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+// ──────────────────────────────────────────────
+// Parse Excel
+// ──────────────────────────────────────────────
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, { defval: null });
+      parseData(raw, file.name);
+    } catch(err) {
+      alert('讀取失敗，請確認為永淋應收帳款格式的 Excel 檔案。\n' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseData(rows, fileName) {
+  // Detect month columns (1月, 2月, ... 12月)
+  if (!rows.length) return;
+  const keys = Object.keys(rows[0]);
+
+  // Month name map (key → display label)
+  const MONTH_KEYS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  // Tax key suffixes as produced by xlsx: 稅金, 稅金.1, 稅金.2 ...
+  const TAX_KEYS   = ['稅金','稅金.1','稅金.2','稅金.3','稅金.4','稅金.5','稅金.6','稅金.7','稅金.8','稅金.9','稅金.10','稅金.11'];
+
+  // Find which months actually have data
+  const availMonths = MONTH_KEYS.filter(m => keys.includes(m));
+
+  // Filter customer rows (exclude totals row)
+  const dataRows = rows.filter(r => r['客戶編號'] && r['客戶編號'] !== '合計' && r['客戶']);
+
+  // Build customer objects
+  const customers = dataRows.map(r => {
+    const obj = { id: String(r['客戶編號'] || ''), name: String(r['客戶'] || '') };
+    let hasAny = false;
+    availMonths.forEach((m, i) => {
+      const v = parseFloat(r[m]) || 0;
+      const t = parseFloat(r[TAX_KEYS[MONTH_KEYS.indexOf(m)]]) || 0;
+      obj[m] = v;
+      obj[m + '_tax'] = t;
+      if (v > 0) hasAny = true;
+    });
+    return hasAny ? obj : null;
+  }).filter(Boolean);
+
+  // Find months that have any data
+  const activeMonths = availMonths.filter(m => customers.some(c => c[m] > 0));
+
+  STATE = { customers, months: activeMonths, fileName };
+  document.getElementById('fileInfo').textContent = fileName + '　' + activeMonths.length + ' 個月份';
+
+  renderDashboard();
+  document.getElementById('uploadSection').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+}
+
+// ──────────────────────────────────────────────
+// Render
+// ──────────────────────────────────────────────
+const COLORS = ['#4f9eff','#36d9a0','#f5a623','#d97bff','#ff6b6b','#4ee6e6','#ffd36b','#ff9f4e','#a8ff78','#fe8ebb'];
+
+function fmt(v) { return v > 0 ? '$' + v.toLocaleString('zh-TW') : '—'; }
+function fmtK(v) { return v >= 10000 ? '$' + Math.round(v/1000) + 'K' : '$' + Math.round(v); }
+
+function renderDashboard() {
+  renderKPIs();
+  renderBarChart();
+  renderLineChart();
+  renderTableHead();
+  renderTable();
+}
+
+function renderKPIs() {
+  const { customers, months } = STATE;
+  if (!months.length) return;
+  const latest = months[months.length - 1];
+  const prev   = months.length > 1 ? months[months.length - 2] : null;
+
+  const latestTotal = customers.reduce((s, c) => s + c[latest], 0);
+  const prevTotal   = prev ? customers.reduce((s, c) => s + c[prev], 0) : null;
+  const latestTax   = customers.reduce((s, c) => s + c[latest + '_tax'], 0);
+  const latestCount = customers.filter(c => c[latest] > 0).length;
+  const totalAll    = months.reduce((s, m) => s + customers.reduce((ss, c) => ss + c[m], 0), 0);
+
+  const change = prevTotal !== null ? latestTotal - prevTotal : null;
+  const changePct = (prevTotal && prevTotal > 0) ? ((change / prevTotal) * 100).toFixed(1) : null;
+
+  const kpis = [
+    {
+      label: latest + ' 應收合計',
+      value: '$' + latestTotal.toLocaleString('zh-TW'),
+      sub: '稅金 $' + latestTax.toLocaleString('zh-TW') + '　' + latestCount + ' 家客戶',
+      badge: null,
+      c1: '#4f9eff', c2: '#36d9a0'
+    },
+    {
+      label: prev ? '較 ' + prev + ' 變動' : '月變動',
+      value: change !== null ? (change >= 0 ? '+' : '') + '$' + Math.abs(change).toLocaleString('zh-TW') : '—',
+      sub: changePct !== null ? (change >= 0 ? '增加' : '減少') + ' ' + Math.abs(changePct) + '%' : '—',
+      badge: change !== null ? (change >= 0 ? 'up' : 'dn') : null,
+      c1: change >= 0 ? '#36d9a0' : '#ff5f57', c2: change >= 0 ? '#4f9eff' : '#ff9f4e'
+    },
+    {
+      label: months[0] + '～' + latest + ' 累計',
+      value: '$' + totalAll.toLocaleString('zh-TW'),
+      sub: months.length + ' 個月合計',
+      badge: null,
+      c1: '#f5a623', c2: '#d97bff'
+    },
+    {
+      label: latest + ' 有資料客戶',
+      value: String(latestCount),
+      sub: '共 ' + customers.length + ' 家客戶',
+      badge: null,
+      c1: '#d97bff', c2: '#fe8ebb'
+    }
+  ];
+
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
+    <div class="kpi-card" style="--c1:${k.c1};--c2:${k.c2}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      ${k.badge ? `<div class="kpi-badge badge-${k.badge}">${k.badge === 'up' ? '▲' : '▼'} ${Math.abs(changePct)}%</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderBarChart() {
+  const { customers, months } = STATE;
+  if (!months.length) return;
+  const latest = months[months.length - 1];
+
+  // Top 10 by latest month total (or total if latest is 0)
+  const sorted = [...customers].sort((a, b) => b[latest] - a[latest]).slice(0, 10);
+
+  // Show up to last 3 months
+  const showMonths = months.slice(-3);
+
+  document.getElementById('barSub').textContent = '依' + latest + '排序，顯示前 10 名';
+  document.getElementById('barLegend').innerHTML = showMonths.map((m, i) =>
+    `<div class="leg"><div class="leg-dot" style="background:${COLORS[i]}"></div>${m}</div>`
+  ).join('');
+
+  if (barChartInst) barChartInst.destroy();
+  barChartInst = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(c => c.name),
+      datasets: showMonths.map((m, i) => ({
+        label: m, data: sorted.map(c => c[m]),
+        backgroundColor: COLORS[i] + 'cc', borderRadius: 4, borderSkipped: false
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8892a4', font: { size: 11 }, maxRotation: 30 }, grid: { display: false }, border: { color: 'rgba(255,255,255,0.07)' } },
+        y: { ticks: { color: '#8892a4', font: { size: 11, family: 'DM Mono' }, callback: v => fmtK(v) },
+             grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function renderLineChart() {
+  const { customers, months } = STATE;
+  if (!months.length) return;
+
+  const totals = months.map(m => customers.reduce((s, c) => s + c[m], 0));
+
+  if (lineChartInst) lineChartInst.destroy();
+  lineChartInst = new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [{
+        label: '月合計', data: totals,
+        borderColor: '#4f9eff', backgroundColor: 'rgba(79,158,255,0.08)',
+        fill: true, tension: 0.35, pointRadius: 5,
+        pointBackgroundColor: '#4f9eff', pointBorderColor: '#0f1117', pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' $' + ctx.raw.toLocaleString('zh-TW') } }
+      },
+      scales: {
+        x: { ticks: { color: '#8892a4', font: { size: 12 } }, grid: { display: false }, border: { color: 'rgba(255,255,255,0.07)' } },
+        y: { ticks: { color: '#8892a4', font: { size: 11, family: 'DM Mono' }, callback: v => fmtK(v) },
+             grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function renderTableHead() {
+  const { months } = STATE;
+  const latest = months[months.length - 1];
+  const prev   = months.length > 1 ? months[months.length - 2] : null;
+
+  document.getElementById('tableHead').innerHTML = `<tr>
+    <th>客戶編號</th>
+    <th>客戶</th>
+    ${prev ? `<th class="num">${prev}</th>` : ''}
+    <th class="num">${latest}</th>
+    <th class="num">稅金 (${latest})</th>
+    <th class="num">累計</th>
+    <th>趨勢</th>
+  </tr>`;
+}
+
+function renderTable() {
+  const { customers, months } = STATE;
+  if (!months.length) return;
+  const latest = months[months.length - 1];
+  const prev   = months.length > 1 ? months[months.length - 2] : null;
+
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const sort = document.getElementById('sortSel').value;
+  const filter = document.getElementById('filterSel').value;
+
+  let data = customers.filter(c => {
+    if (q && !c.name.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
+    if (filter === 'latest') return c[latest] > 0;
+    if (filter === 'new') return c[latest] > 0 && (!prev || c[prev] === 0);
+    if (filter === 'missing') return c[latest] === 0 && months.some(m => m !== latest && c[m] > 0);
+    return true;
+  });
+
+  const total = c => months.reduce((s, m) => s + c[m], 0);
+  if (sort === 'latest_desc') data.sort((a, b) => b[latest] - a[latest]);
+  else if (sort === 'total_desc') data.sort((a, b) => total(b) - total(a));
+  else data.sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'));
+
+  function badge(c) {
+    if (!prev) return '';
+    if (c[latest] > 0 && c[prev] === 0) return '<span class="pill pill-new">新增</span>';
+    if (c[latest] === 0 && c[prev] > 0) return '<span class="pill pill-na">本月無</span>';
+    if (c[latest] > 0 && c[prev] > 0) {
+      const pct = ((c[latest] - c[prev]) / c[prev] * 100).toFixed(0);
+      return c[latest] >= c[prev]
+        ? `<span class="pill pill-up">▲ ${pct}%</span>`
+        : `<span class="pill pill-dn">▼ ${Math.abs(pct)}%</span>`;
+    }
+    return '';
+  }
+
+  document.getElementById('tableBody').innerHTML = data.map(c => `<tr>
+    <td class="dim">${c.id}</td>
+    <td style="font-weight:500">${c.name}</td>
+    ${prev ? `<td class="num" style="color:var(--text2)">${fmt(c[prev])}</td>` : ''}
+    <td class="num" style="color:${c[latest]>0?'var(--text)':'var(--text3)'}">${fmt(c[latest])}</td>
+    <td class="num" style="color:var(--text2)">${fmt(c[latest + '_tax'])}</td>
+    <td class="num" style="font-weight:500">${fmt(total(c))}</td>
+    <td>${badge(c)}</td>
+  </tr>`).join('');
+
+  document.getElementById('tableFooter').textContent = `顯示 ${data.length} 筆 / 共 ${customers.length} 筆`;
+}
+</script>
+</body>
+</html>
