@@ -1,10 +1,30 @@
 <!DOCTYPE html>
-<!-- saved from url=(0043)file:///C:/Users/ls452/Downloads/index.html -->
+<!-- saved from url=(0045)file:///C:/Users/ls452/Downloads/index_3.html -->
 <html lang="zh-TW"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sylvia｜Data</title>
-<script src="./Sylvia｜Data 銷售儀表板_files/xlsx.full.min.js.下載"></script>
+<script>
+// 動態載入 XLSX，主要來源失敗時自動切換備用
+(function() {
+  function loadScript(src, onload, onerror) {
+    var s = document.createElement('script');
+    s.src = src; s.onload = onload; s.onerror = onerror;
+    document.head.appendChild(s);
+  }
+  var xlsxUrls = [
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+  ];
+  var idx = 0;
+  function tryLoad() {
+    if (idx >= xlsxUrls.length) { console.error('XLSX 所有來源載入失敗'); return; }
+    loadScript(xlsxUrls[idx++], function(){ console.log('XLSX 載入成功'); }, tryLoad);
+  }
+  tryLoad();
+})();
+</script><script src="./Sylvia｜Data 銷售儀表板_files/xlsx.full.min.js.下載"></script>
 <script src="./Sylvia｜Data 銷售儀表板_files/chart.umd.min.js.下載"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
@@ -483,6 +503,10 @@ dropZone.addEventListener('drop', e => {
 // ──────────────────────────────────────────────
 function handleFile(file) {
   if (!file) return;
+  if (typeof XLSX === 'undefined') {
+    alert('Excel 讀取模組尚未載入完成，請等待 2 秒後重新整理頁面再試。');
+    return;
+  }
   const reader = new FileReader();
   reader.onload = e => {
     try {
