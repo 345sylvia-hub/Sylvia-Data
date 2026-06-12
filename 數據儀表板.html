@@ -1,57 +1,47 @@
 <!DOCTYPE html>
-<!-- saved from url=(0045)file:///C:/Users/ls452/Downloads/index_3.html -->
+<!-- saved from url=(0045)file:///C:/Users/ls452/Downloads/index_6.html -->
 <html lang="zh-TW"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sylvia｜Data</title>  
+<title>Sylvia Core</title>
 <script>
-// 動態載入 XLSX 和 Chart.js，主要來源失敗時自動切換備用
+// 動態載入 XLSX 和 Chart.js，失敗時自動切換備用來源
 (function() {
   function loadScript(src, onload, onerror) {
     var s = document.createElement('script');
     s.src = src; s.onload = onload; s.onerror = onerror;
     document.head.appendChild(s);
   }
-  
-  // 載入 XLSX
+
+  // 先載入 XLSX，完成後再載入 Chart.js
   var xlsxUrls = [
     'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
     'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
   ];
-  var xlsxIdx = 0;
-  function tryLoadXLSX() {
-    if (xlsxIdx >= xlsxUrls.length) { 
-      console.error('XLSX 所有來源載入失敗'); 
-      return; 
-    }
-    loadScript(xlsxUrls[xlsxIdx++], function(){ 
-      console.log('XLSX 載入成功');
-      tryLoadChart(); // XLSX 成功後載入 Chart.js
-    }, tryLoadXLSX);
-  }
-  
-  // 載入 Chart.js
   var chartUrls = [
-    'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
-    'https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js'
   ];
-  var chartIdx = 0;
-  function tryLoadChart() {
-    if (chartIdx >= chartUrls.length) { 
-      console.error('Chart.js 所有來源載入失敗'); 
-      return; 
-    }
-    loadScript(chartUrls[chartIdx++], function(){ 
-      console.log('Chart.js 載入成功');
-    }, tryLoadChart);
+
+  function tryLoad(urls, idx, label, callback) {
+    if (idx >= urls.length) { console.error(label + ' 所有來源載入失敗'); return; }
+    loadScript(urls[idx], function() {
+      console.log(label + ' 載入成功：' + urls[idx]);
+      if (callback) callback();
+    }, function() {
+      console.warn(label + ' 來源失敗，嘗試下一個：' + urls[idx]);
+      tryLoad(urls, idx + 1, label, callback);
+    });
   }
-  
-  // 開始載入 XLSX
-  tryLoadXLSX();
+
+  // 先載 XLSX，再載 Chart.js
+  tryLoad(xlsxUrls, 0, 'XLSX', function() {
+    tryLoad(chartUrls, 0, 'Chart.js', null);
+  });
 })();
-</script>
+</script><script src="./Sylvia｜Core 銷售儀表板_files/xlsx.full.min.js.下載"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
 
@@ -315,7 +305,7 @@
     #savedMonthsBar { padding: 10px 16px; }
   }
 </style>
-</head>
+<script src="./Sylvia｜Core 銷售儀表板_files/chart.umd.min.js.下載"></script></head>
 <body>
 
 <div id="toastBar"></div>
@@ -324,13 +314,13 @@
   <div class="logo">
     <div class="logo-mark">識</div>
     <div>
-      <div class="logo-text">Sylvia Data</div>
-      <div class="logo-sub">NPC儀表板</div>
+      <div class="logo-text">Sylvia Finance</div>
+      <div class="logo-sub">Finance Hub</div>
     </div>
   </div>
   <div class="header-right">
     <span id="fileInfo">尚未載入資料</span>
-    <button class="btn-upload" onclick="document.getElementById('fileInput2').click()">
+    <button class="btn-upload" onclick="document.getElementById(&#39;fileInput2&#39;).click()">
       ➕ 新增月份
     </button>
     <input type="file" id="fileInput2" accept=".xlsx,.xls" style="display:none" onchange="handleFile(this.files[0])">
@@ -678,11 +668,6 @@ function renderKPIs() {
 function renderBarChart() {
   const { customers, months } = STATE;
   if (!months.length) return;
-  if (typeof Chart === 'undefined') {
-    console.warn('Chart.js 尚未載入');
-    return;
-  }
-  
   const latest    = months[months.length - 1];
   const sorted    = [...customers].sort((a, b) => (b[latest]||0) - (a[latest]||0)).slice(0, 10);
   const showMonths = months.slice(-3);
@@ -717,11 +702,6 @@ function renderBarChart() {
 function renderLineChart() {
   const { customers, months } = STATE;
   if (!months.length) return;
-  if (typeof Chart === 'undefined') {
-    console.warn('Chart.js 尚未載入');
-    return;
-  }
-  
   const totals = months.map(m => customers.reduce((s, c) => s + (c[m] || 0), 0));
 
   if (lineChartInst) lineChartInst.destroy();
