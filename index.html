@@ -5,27 +5,53 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sylvia｜Data</title>
 <script>
-// 動態載入 XLSX，主要來源失敗時自動切換備用
+// 動態載入 XLSX 和 Chart.js，主要來源失敗時自動切換備用
 (function() {
   function loadScript(src, onload, onerror) {
     var s = document.createElement('script');
     s.src = src; s.onload = onload; s.onerror = onerror;
     document.head.appendChild(s);
   }
+  
+  // 載入 XLSX
   var xlsxUrls = [
     'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
     'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
   ];
-  var idx = 0;
-  function tryLoad() {
-    if (idx >= xlsxUrls.length) { console.error('XLSX 所有來源載入失敗'); return; }
-    loadScript(xlsxUrls[idx++], function(){ console.log('XLSX 載入成功'); }, tryLoad);
+  var xlsxIdx = 0;
+  function tryLoadXLSX() {
+    if (xlsxIdx >= xlsxUrls.length) { 
+      console.error('XLSX 所有來源載入失敗'); 
+      return; 
+    }
+    loadScript(xlsxUrls[xlsxIdx++], function(){ 
+      console.log('XLSX 載入成功');
+      tryLoadChart(); // XLSX 成功後載入 Chart.js
+    }, tryLoadXLSX);
   }
-  tryLoad();
+  
+  // 載入 Chart.js
+  var chartUrls = [
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'
+  ];
+  var chartIdx = 0;
+  function tryLoadChart() {
+    if (chartIdx >= chartUrls.length) { 
+      console.error('Chart.js 所有來源載入失敗'); 
+      return; 
+    }
+    loadScript(chartUrls[chartIdx++], function(){ 
+      console.log('Chart.js 載入成功');
+    }, tryLoadChart);
+  }
+  
+  // 開始載入 XLSX
+  tryLoadXLSX();
 })();
-</script><script src="./Sylvia｜Data 銷售儀表板_files/xlsx.full.min.js.下載"></script>
-<script src="./Sylvia｜Data 銷售儀表板_files/chart.umd.min.js.下載"></script>
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
 
@@ -304,7 +330,7 @@
   </div>
   <div class="header-right">
     <span id="fileInfo">尚未載入資料</span>
-    <button class="btn-upload" onclick="document.getElementById(&#39;fileInput2&#39;).click()">
+    <button class="btn-upload" onclick="document.getElementById('fileInput2').click()">
       ➕ 新增月份
     </button>
     <input type="file" id="fileInput2" accept=".xlsx,.xls" style="display:none" onchange="handleFile(this.files[0])">
@@ -652,6 +678,11 @@ function renderKPIs() {
 function renderBarChart() {
   const { customers, months } = STATE;
   if (!months.length) return;
+  if (typeof Chart === 'undefined') {
+    console.warn('Chart.js 尚未載入');
+    return;
+  }
+  
   const latest    = months[months.length - 1];
   const sorted    = [...customers].sort((a, b) => (b[latest]||0) - (a[latest]||0)).slice(0, 10);
   const showMonths = months.slice(-3);
@@ -686,6 +717,11 @@ function renderBarChart() {
 function renderLineChart() {
   const { customers, months } = STATE;
   if (!months.length) return;
+  if (typeof Chart === 'undefined') {
+    console.warn('Chart.js 尚未載入');
+    return;
+  }
+  
   const totals = months.map(m => customers.reduce((s, c) => s + (c[m] || 0), 0));
 
   if (lineChartInst) lineChartInst.destroy();
